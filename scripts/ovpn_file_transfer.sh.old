@@ -1,0 +1,29 @@
+#!/bin/bash
+# Check is directory available
+cd /home/ec2-user/
+if [ -d /home/ec2-user/ovpn-files ]; then
+        echo "Directory ovpn-files exists. Ready to move files."
+else
+   mkdir /home/ec2-user/ovpn-files
+fi
+
+# Create a maling list of new users
+ls *.ovpn | cut -d'.' -f1-2 > temporary_new_users.txt
+
+# Loop over the mailing list and apply changes to files in order to successfully send a mail without json parsing errors
+while IFS="" read -r p || [ -n "$p" ]
+do
+PW=$(cat $p.ovpn | grep Your | cut -d' ' -f4)
+sed -i 's/$/\\~n/g' $p.ovpn
+OVPN_FILE=$(tr '\n' ' ' < $p.ovpn)
+echo '{"Data":"From:'$(echo ${p})'@devops.co.uk\nTo:'$(echo ${p})'@devops.co.uk\nSubject:OpenVPN-Credentials\nMIME-Version:1.0\nContent-type:Multipart/Mixed;boundary=\"NextPart\"\n\n--NextPart\nContent-Type:text/plain\n\nYour username is: '$(echo ${p})' and Your password is '$(echo ${PW})'. Password is also located within your '$(echo ${p}.ovpn)' file.\n\n--NextPart\nContent-Type:text/csv;\nContent-Disposition:attachment;filename=\"'$(echo ${p})'.ovpn\"\n\n'$(echo ${OVPN_FILE})'\n\n--NextPart--"}' > message.json
+sed -i 's/~n /n/g' message.json
+sed -i 's/\\~n//g' message.json
+sed -i 's/\\~n//g' $p.ovpn
+# Send the ovpn file to the new user
+/usr/local/bin/aws ses send-raw-email \
+  --cli-binary-format raw-in-base64-out \
+  --raw-message file://message.json | exit 0
+echo "OVPN file has been successfully sent to $p@devops.co.uk"
+# Move user ovpn file that have recieved the mail
+done < temporary_new_users.txt
