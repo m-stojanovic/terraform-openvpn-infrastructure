@@ -19,9 +19,8 @@ Kafka Zookeeper cluster with 3 kafka and 3 zookeeper nodes secured with SSL, alo
 
 ### Built With
 
-* [Docker](https://docker.com)
-* [Kafka](https://kafka.com)
-* [Zookeeper](https://zookeeper.com)
+* [Terraform](https://terraform.io)
+* [OpenVPN](https://openvpn.com)
 * [Yaml](https://yaml.com)
 
 
