@@ -1,3 +1,5 @@
+# This script has been downloaded from https://github.com/angristan/openvpn-install
+# Its in original state, please use to to compare with adjusted openvpn-install.sh script in order to find out what were the changes before install.
 #!/bin/bash
 
 # Secure OpenVPN server installer for Debian, Ubuntu, CentOS, Amazon Linux 2, Fedora and Arch Linux
@@ -664,8 +666,8 @@ function installOpenVPN () {
 	esac
 
 	# Generate a random, alphanumeric identifier of 16 characters for CN and one for server name
-	SERVER_CN="devops-vpn-server-cn"
-	SERVER_NAME="devops-vpn-server"
+	SERVER_CN="cn_$(head /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 16 | head -n 1)"
+	SERVER_NAME="server_$(head /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 16 | head -n 1)"
 	echo "set_var EASYRSA_REQ_CN $SERVER_CN" >> vars
 
 	# Workaround to remove unharmful error until easy-rsa 3.0.7
@@ -720,12 +722,7 @@ persist-tun
 keepalive 10 120
 topology subnet
 server 10.8.0.0 255.255.255.0
-ifconfig-pool-persist ipp.txt
-push \"explicit-exit-notify 3\"
-script-security 2
-auth-user-pass-verify /etc/openvpn/ovpnauth.sh via-file
-username-as-common-name
-management localhost 7505" >> /etc/openvpn/server.conf
+ifconfig-pool-persist ipp.txt" >> /etc/openvpn/server.conf
 
 	# DNS resolvers
 	case $DNS in
@@ -830,13 +827,8 @@ tls-server
 tls-version-min 1.2
 tls-cipher $CC_CIPHER
 status /var/log/openvpn/status.log
-log-append /var/log/openvpn/openvpn.log
-verb 4" >> /etc/openvpn/server.conf
-if [ -f /home/ec2-user/ovpnauth.sh ]; then
-	mv /home/ec2-user/ovpnauth.sh /etc/openvpn/
-else
-   echo "File ovpnauth.sh already at /etc/openvpn directory."
-fi
+verb 3" >> /etc/openvpn/server.conf
+
 	# Create log dir
 	mkdir -p /var/log/openvpn
 
@@ -979,6 +971,7 @@ cipher $CIPHER
 tls-client
 tls-version-min 1.2
 tls-cipher $CC_CIPHER
+setenv opt block-outside-dns # Prevent Windows 10 DNS leak
 verb 3" >> /etc/openvpn/client-template.txt
 
 if [[ $COMPRESSION_ENABLED == "y"  ]]; then
@@ -995,7 +988,7 @@ function newClient () {
 	echo "Tell me a name for the client."
 	echo "Use one word only, no special characters."
 
-	until [[ "$CLIENT" =~ ^[a-zA-Z0-9_.]+$ ]]; do
+	until [[ "$CLIENT" =~ ^[a-zA-Z0-9_]+$ ]]; do
 		read -rp "Client name: " -e CLIENT
 	done
 
@@ -1013,11 +1006,6 @@ function newClient () {
 	case $PASS in
 		1)
 			./easyrsa build-client-full "$CLIENT" nopass
-			pwgen 16 1 > /tmp/temp.passwd
-			PW_PLAIN=$(cat /tmp/temp.passwd)
-			PW_MD5=$(cat /tmp/temp.passwd | md5sum | cut -f1 -d" ")
-			echo "$CLIENT=$PW_MD5" >> /etc/openvpn/ovpnauth.passwd
-			sleep 1
 		;;
 		2)
 		echo "⚠️ You will be asked for the client password below ⚠️"
@@ -1044,7 +1032,6 @@ function newClient () {
 	# Generates the custom client.ovpn
 	cp /etc/openvpn/client-template.txt "$homeDir/$CLIENT.ovpn"
 	{
-		echo "#Your password is: $PW_PLAIN Use it to connect to OpenVPN server"
 		echo "<ca>"
 		cat "/etc/openvpn/easy-rsa/pki/ca.crt"
 		echo "</ca>"
@@ -1072,8 +1059,6 @@ function newClient () {
 		esac
 	} >> "$homeDir/$CLIENT.ovpn"
 
-	echo "auth-user-pass
-block-ipv6" >> "$homeDir/$CLIENT.ovpn"
 	echo ""
 	echo "Client $CLIENT added, the configuration file is available at $homeDir/$CLIENT.ovpn."
 	echo "Download the .ovpn file and import it in your OpenVPN client."
@@ -1089,7 +1074,7 @@ function revokeClient () {
 		exit 1
 	fi
 
-	until [[ "$CLIENT" =~ ^[a-zA-Z0-9_.]+$ ]]; do
+	until [[ "$CLIENT" =~ ^[a-zA-Z0-9_]+$ ]]; do
 		echo ""
 		echo "Select the existing client certificate you want to revoke"
 		tail -n +2 /etc/openvpn/easy-rsa/pki/index.txt | grep "^V" | cut -d '=' -f 2 | nl -s ') '
@@ -1111,7 +1096,7 @@ function revokeClient () {
 	rm -f /etc/openvpn/crl.pem
 	cp /etc/openvpn/easy-rsa/pki/crl.pem /etc/openvpn/crl.pem
 	chmod 644 /etc/openvpn/crl.pem
-	find /home/ -maxdepth 3 -name "$CLIENT.ovpn" -delete
+	find /home/ -maxdepth 2 -name "$CLIENT.ovpn" -delete
 	rm -f "/root/$CLIENT.ovpn"
 	sed -i "s|^$CLIENT,.*||" /etc/openvpn/ipp.txt
 
@@ -1211,7 +1196,7 @@ function removeOpenVPN () {
 		fi
 
 		# Cleanup
-		find /home/ -maxdepth 3 -name "*.ovpn" -delete
+		find /home/ -maxdepth 2 -name "*.ovpn" -delete
 		find /root/ -maxdepth 1 -name "*.ovpn" -delete
 		rm -rf /etc/openvpn
 		rm -rf /usr/share/doc/openvpn*

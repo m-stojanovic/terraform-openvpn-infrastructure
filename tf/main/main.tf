@@ -63,6 +63,7 @@ resource "aws_instance" "openvpn" {
     volume_size           = var.instance_root_block_device_volume_size
     delete_on_termination = false
     encrypted             = true
+    tags                  = var.tags
   }
 
   tags = var.tags
@@ -72,6 +73,7 @@ resource "aws_cloudwatch_event_rule" "openvpn" {
   name                = "openvpn-daily-backup-${var.aws_region}"
   description         = "Fires every day at 00:00 UTC"
   schedule_expression = "cron(0 0 * * ? *)"
+  tags                = var.tags
 }
 
 resource "aws_cloudwatch_event_target" "openvpn" {
@@ -219,4 +221,66 @@ EOF
 resource "aws_iam_role_policy_attachment" "openvpn" {
   role       = aws_iam_role.openvpn.name
   policy_arn = aws_iam_policy.openvpn.arn
+}
+
+
+# Snapshot retention
+resource "aws_dlm_lifecycle_policy" "openvpn" {
+  description          = "Openvpn snapshot lifecycle policy"
+  execution_role_arn   = aws_iam_role.openvpn-dlm.arn
+  state                = "ENABLED"
+  tags                 = var.tags
+
+  policy_details {
+    resource_types = ["VOLUME"]
+
+    schedule {
+      name = "2 weeks retention"
+
+      create_rule {
+        interval      = 24
+        interval_unit = "HOURS"
+        times         = ["23:45"]
+      }
+
+      retain_rule {
+        count = 14
+      }
+
+      tags_to_add = {
+        SnapshotCreator = "DLM"
+      }
+
+      copy_tags = false
+    }
+
+    target_tags = {
+      Name = "openvpn-server"
+    }
+  }
+}
+
+resource "aws_iam_role" "openvpn-dlm" {
+  name = "openvpn-dlm"
+  
+  assume_role_policy = <<-EOF
+  {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Action": "sts:AssumeRole",
+        "Principal": {
+          "Service": "dlm.amazonaws.com"
+        },
+        "Effect": "Allow",
+        "Sid": ""
+      }
+    ]
+  }
+  EOF
+}
+
+resource "aws_iam_role_policy_attachment" "openvpn-dlm" {
+  role       = aws_iam_role.openvpn-dlm.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSDataLifecycleManagerServiceRole"
 }
