@@ -2,10 +2,10 @@
 ## Table of Contents
 
 * [About the Project](#about-the-project)
-  * [Built With](#built-with)
+* [Built With](#built-with)
 * [Getting Started](#getting-started)
-  * [Prerequisites](#prerequisites)
-  * [Installation](#installation)
+* [Prerequisites](#prerequisites)
+* [Installation](#installation)
 * [Roadmap](#roadmap)
 * [Contributing](#contributing)
 * [Contact](#contact)
@@ -15,7 +15,7 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-Kafka Zookeeper cluster with 3 kafka and 3 zookeeper nodes secured with SSL, along with kafka manager, kowl and akhq.
+Opensource OpenVPN setup with Terraform and scripts that handle user creation integrated with Terraform, and ovpn file transfer using AWS SES service.
 
 ### Built With
 
@@ -31,7 +31,7 @@ Locate in the directory tf/main
 
 ### Prerequisites
 
-Terraform version 1.0.8 +
+Terraform version 1.3.6 +
 
 <!-- ROADMAP -->
 ## Roadmap
