@@ -26,8 +26,13 @@ Opensource OpenVPN setup with Terraform and scripts that handle user creation in
 
 ## Getting Started
 
-Locate in the directory tf/main
-
+Locate in the directory tf/main.
+On Instance install pwgen and awscli.
+   $ sudo amazon-linux-extras install epel -y
+   $ sudo yum install pwgen
+   $ curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+   $ unzip awscliv2.zip
+   $ sudo ./aws/install
 
 ### Prerequisites
 
